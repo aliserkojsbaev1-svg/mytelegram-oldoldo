@@ -1,0 +1,64 @@
+name: Build MyTelegram APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'gradle'
+
+    - name: Setup ccache
+      uses: hendrikmuhs/ccache-action@v1
+      with:
+        key: ccache-${{ runner.os }}
+        max-size: 2G
+
+    - name: Replace Telegram servers IP
+      run: |
+        find . -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.java" \) -exec sed -i 's/149\.154\.175\.50/143.47.183.208/g' {} \;
+        find . -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.java" \) -exec sed -i 's/149\.154\.175\.100/143.47.183.208/g' {} \;
+        find . -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.java" \) -exec sed -i 's/149\.154\.167\.51/143.47.183.208/g' {} \;
+        find . -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.java" \) -exec sed -i 's/149\.154\.175\.117/143.47.183.208/g' {} \;
+        find . -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.java" \) -exec sed -i 's/149\.154\.167\.91/143.47.183.208/g' {} \;
+        find . -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.java" \) -exec sed -i 's/149\.154\.171\.5/143.47.183.208/g' {} \;
+        
+    - name: Create google-services.json
+      run: |
+        echo '{"project_info":{"project_number":"123456789","project_id":"mytelegram"},"client":[{"client_info":{"mobilesdk_app_id":"1:123456789:android:abcdef","android_client_info":{"package_name":"org.telegram.messenger"}},"api_key":[{"current_key":"AIzaSyA-t0jLPjUt2FxrA8VPK2EiYHcYcboIR6k"}]}]}' > TMessagesProj/google-services.json
+        
+    - name: Update BuildVars
+      run: |
+        sed -i 's/public static int APP_ID = .*/public static int APP_ID = 4;/' TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
+        sed -i 's|public static String APP_HASH = .*|public static String APP_HASH = "014b35b6184100b085b0d0572f9b5103";|' TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
+        
+    - name: Create local.properties
+      run: |
+        echo "sdk.dir=$ANDROID_HOME" > local.properties
+        echo "ndk.dir=$ANDROID_NDK_HOME" >> local.properties
+        
+    - name: Build APK
+      env:
+        GRADLE_OPTS: "-Xmx6g -Dorg.gradle.daemon=false"
+        # ИСПРАВЛЕНО: Правильный синтаксис передачи NDK в переменные окружения
+        ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+      run: |
+        chmod +x gradlew
+        # Совет: если сборка упадет, замените assembleDebug на assembleAfatDebug
+        ./gradlew clean assembleDebug --no-daemon --stacktrace
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: MyTelegram-APK
+        path: |
+          **/*.apk
+          
